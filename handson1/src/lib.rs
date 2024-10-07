@@ -77,7 +77,9 @@ impl Tree {
     /// A private recursive function that check if a
     /// subtree rooted at `node_id` is a BST
     fn rec_is_bst(&self, node_id: Option<usize>) -> (bool, u32, u32) {
+
         if let Some(id) = node_id {
+            assert!(id < self.nodes.len(), "Node id is out of range");
             let node: &Node = &self.nodes[id];
             let (ans_l, max_l, min_l) = self.rec_is_bst(node.id_left);
             let (ans_r, max_r, min_r) = self.rec_is_bst(node.id_right);
@@ -91,6 +93,32 @@ impl Tree {
         (true, 0, u32::MAX)
     }
 
+    /* ---------- Exercise  #2 ---------- */
+    /* Write a method to solve the Maximum Path Sum problem. The method must return
+    the sum of the maximum simple path connecting two leaves. */
+
+    /// return the maximum path sum
+    pub fn max_path_sum(&self) -> u32 {
+        self.rec_max_path_sum(Some(0)).0
+    }
+
+    /// A private recursive function that return the maximum path sum and
+    /// the maximum leaf-node path cost for a subtree rooted at `node_id`
+    fn rec_max_path_sum(&self, node_id: Option<usize>) -> (u32, u32) {
+
+        if let Some(id) = node_id {
+            assert!(id < self.nodes.len(), "Node id is out of range");
+            let node: &Node = &self.nodes[id];
+            let (best_l, max_l) = self.rec_max_path_sum(node.id_left);
+            let (best_r, max_r) = self.rec_max_path_sum(node.id_right);
+            let path: u32 = node.key + max_l + max_r;
+            let best: u32 = max(path, max(best_l, best_r));
+            let max: u32 = max(max_l, max_r) + node.key;
+
+            return (best, max);
+        }
+        (0, 0)
+    }
 }
 
 /* ---------- Unit Tests ---------- */
@@ -149,5 +177,45 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_max_path_sum() {
+        let mut tree = Tree::with_root(20); // id 0
+        assert_eq!(
+            tree.max_path_sum(), 20,
+            "Tree with only root must have a max path sum of 20"
+        );
 
+        tree.add_node(0, 6, true); // id 1
+        tree.add_node(0, 5, false); // id 2
+        assert_eq!(
+            tree.max_path_sum(), 31,
+            "Tree with only root and two children must have a max path sum of 31"
+        );
+
+        tree.add_node(1, 0, true); // id 3
+        tree.add_node(1, 0, false); // id 4
+        assert_eq!(
+            tree.max_path_sum(), 31,
+            "Tree with only root and two children must have a max path sum of 31"
+        );
+
+        tree.add_node(2, 4, true); // id 5
+        assert_eq!(
+            tree.max_path_sum(), 35,
+            "Tree with only root and two children must have a max path sum of 35"
+        );
+
+        tree.add_node(2, 30, false); // id 6
+        assert_eq!(
+            tree.max_path_sum(), 61,
+            "Tree with only root and two children must have a max path sum of 61"
+        );
+
+        tree.add_node(6, 50, true); // id 9
+        tree.add_node(6, 50, false); // id 10
+        assert_eq!(
+            tree.max_path_sum(), 130,
+            "Tree with only root and two children must have a max path sum of 130"
+        );
+    }
 }
