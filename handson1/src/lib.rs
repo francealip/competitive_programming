@@ -1,5 +1,4 @@
 use std::cmp::{max, min};
-use std::u32;
 
 struct Node {
     key: u32,
@@ -97,97 +96,54 @@ impl Tree {
     the sum of the maximum simple path connecting two leaves. */
 
     /// return the maximum path sum
-    pub fn max_path_sum_backup(&self) -> u32 {
-        self.rec_max_path_sum_backup(Some(0)).0
-    }
-
-    /// A private recursive function that return the maximum path sum and
-    /// the maximum leaf-node path cost for a subtree rooted at `node_id`
-    fn rec_max_path_sum_backup(&self, node_id: Option<usize>) -> (u32, u32) {
-        if let Some(id) = node_id {
-            assert!(id < self.nodes.len(), "Node id is out of range");
-            let node: &Node = &self.nodes[id];
-            let (best_l, max_l) = self.rec_max_path_sum_backup(node.id_left);
-            let (best_r, max_r) = self.rec_max_path_sum_backup(node.id_right);
-            let path: u32 = node.key + max_l + max_r;
-            let best: u32 = max(path, max(best_l, best_r));
-            let max: u32 = max(max_l, max_r) + node.key;
-
-            return (best, max);
-        }
-        (0, 0)
-    }
-
     pub fn max_path_sum(&self) -> Option<u32> {
         self.rec_max_path_sum(Some(0)).0
     }
 
+    /// A private recursive function that return the maximum path sum and
+    /// the maximum leaf-node path cost for a subtree rooted at `node_id`
     fn rec_max_path_sum(&self, node_id: Option<usize>) -> (Option<u32>, Option<u32>) {
         if let Some(id) = node_id {
             assert!(id < self.nodes.len(), "Node id is out of range");
-            let node: &Node = &self.nodes[id];
+            let node = &self.nodes[id];
             let (best_l, max_l) = self.rec_max_path_sum(node.id_left);
             let (best_r, max_r) = self.rec_max_path_sum(node.id_right);
 
-            print!("I'm node: {}, receiving: ", node.key);
-            println!("{}, {}, {}, {}", best_l.unwrap_or(0), max_l.unwrap_or(0),
-                   best_r.unwrap_or(0), max_r.unwrap_or(0));
+            let ml = max_l.unwrap_or(0);
+            let mr = max_r.unwrap_or(0);
+            let bl = best_l.unwrap_or(0);
+            let br = best_r.unwrap_or(0);
+
+            let path = node.key + ml + mr;
+            let best = Some(max(path, max(bl, br)));
+            let max_val = Some(max(ml, mr) + node.key);
 
             match (best_l, max_l, best_r, max_r) {
                 // if everything is defined
-                (Some(bl), Some(ml), Some(br), Some(mr)) => {
-                    let path: u32 = node.key + ml + mr;
-                    let best: u32 = max(path, max(bl, br));
-                    let max: u32 = max(ml, mr) + node.key;
-                    return (Some(best), Some(max));
-                },
-                // if i don't found a best path on left subtree
-                (None, Some(ml), Some(br), Some(mr)) => {
-                    let path: u32 = node.key + ml + mr;
-                    let best: u32 = max(path, br);
-                    let max: u32 = max(ml, mr) + node.key;
-                    return (Some(best), Some(max));
-                },
-                // if i don't found a best path on right subtree
-                (Some(bl), Some(ml), None, Some(mr)) => {
-                    let path: u32 = node.key + ml + mr;
-                    let best: u32 = max(path, bl);
-                    let max: u32 = max(ml, mr) + node.key;
-                    return (Some(best), Some(max));
-                },
-                // if i don't found a best so far
-                (None, Some(ml), None, Some(mr)) => {
-                    let best: u32 = node.key + ml + mr;
-                    let max: u32 = max(ml, mr) + node.key;
-                    return (Some(best), Some(max));
-                },
-                // if i don't have both best so far and max from right child
-                (Some(bl), Some(ml), None, None) => {
-                    return (Some(bl),Some(ml + node.key));
-                }
-                // if i don't have both best so far and max from left child
-                (None, None, Some(br), Some(mr)) => {
-                    return (Some(br),Some(mr + node.key));
-                }
-                // if i only have max from left
-                (None, Some(ml), None, None) => {
-                    return (None,Some(ml + node.key));
-                }
-                // if i only have max from right
-                (None, None, None, Some(mr)) => {
-                    return (None,Some(mr + node.key));
-                }
-                // if i'm a leaf
-                (None, None, None, None) => {
-                    return (None, Some(node.key));
-                }
+                (Some(_), Some(_), Some(_), Some(_)) => (best, max_val),
+                // if I don't find a best path on the left subtree
+                (None, Some(_), Some(_), Some(_)) => (Some(max(path, br)), max_val),
+                // if I don't find a best path on the right subtree
+                (Some(_), Some(_), None, Some(_)) => (Some(max(path, bl)), max_val),
+                // if I don't find a best so far
+                (None, Some(_), None, Some(_)) => (Some(path), max_val),
+                // if I don't have both best so far and max from right child
+                (Some(bl), Some(ml), None, None) => (Some(bl), Some(ml + node.key)),
+                // if I don't have both best so far and max from left child
+                (None, None, Some(br), Some(mr)) => (Some(br), Some(mr + node.key)),
+                // if I only have max from left
+                (None, Some(ml), None, None) => (None, Some(ml + node.key)),
+                // if I only have max from right
+                (None, None, None, Some(mr)) => (None, Some(mr + node.key)),
+                // if I'm a leaf
+                (None, None, None, None) => (None, Some(node.key)),
                 _ => unreachable!("This code should never be reached"),
             }
+        } else {
+            (None, None)
         }
-        (None, None)
     }
 }
-
 
 /* ---------- Unit Tests ---------- */
 
@@ -248,11 +204,33 @@ mod tests {
             !not_bst3.is_bst(),
             "Tree with value 19 violate the BST property"
         );
+
+        // strange case: tree with only one long ramification
+        let mut strange_bst = Tree::with_root(20); // id 0
+
+        strange_bst.add_node(0, 12, true); // id 1
+        strange_bst.add_node(1, 6, true); // id 2
+        strange_bst.add_node(2, 3, true); // id 3
+        strange_bst.add_node(3, 1, true); // id 4
+
+        assert!(
+            strange_bst.is_bst(),
+            "Tree with only one ramification must be a BST"
+        );
+
+        // strange case 2: tree with only one long ramification
+
+        strange_bst.add_node(4, 2, false); // id 5
+
+        assert!(
+            strange_bst.is_bst(),
+            "Tree with only one ramification must be a BST"
+        );
     }
 
+    //test for exercise 2
     #[test]
     fn test_max_path_sum() {
-
         // No max path test for the max_path_sum method
         let mut tree = Tree::with_root(20); // id 0
         assert_eq!(
@@ -280,6 +258,13 @@ mod tests {
             tree.max_path_sum(),
             None,
             "Tree with only one leaf must return None path"
+        );
+
+        tree.add_node(2, 3, true); // id 3
+        assert_eq!(
+            tree.max_path_sum().unwrap(),
+            11,
+            "This tree has a subtree that sum to 11"
         );
 
         // Standard test for the max_path_sum method
@@ -318,6 +303,5 @@ mod tests {
             214,
             "This tree has max path sum of 214"
         );
-
     }
 }
