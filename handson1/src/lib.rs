@@ -101,7 +101,8 @@ impl Tree {
     }
 
     /// A private recursive function that return the maximum path sum and
-    /// the maximum leaf-node path cost for a subtree rooted at `node_id`
+    /// the maximum leaf-node path cost for a subtree rooted at `node_id`.
+    /// If there not exist a path between two leaves, return None
     fn rec_max_path_sum(&self, node_id: Option<usize>) -> (Option<u32>, Option<u32>) {
         if let Some(id) = node_id {
             assert!(id < self.nodes.len(), "Node id is out of range");
@@ -119,24 +120,14 @@ impl Tree {
             let max_val = Some(max(ml, mr) + node.key);
 
             match (best_l, max_l, best_r, max_r) {
-                // if everything is defined
-                (Some(_), Some(_), Some(_), Some(_)) => (best, max_val),
-                // if I don't find a best path on the left subtree
-                (None, Some(_), Some(_), Some(_)) => (Some(max(path, br)), max_val),
-                // if I don't find a best path on the right subtree
-                (Some(_), Some(_), None, Some(_)) => (Some(max(path, bl)), max_val),
-                // if I don't find a best so far
-                (None, Some(_), None, Some(_)) => (Some(path), max_val),
+                // if everything is defined or i do not receive a best so far from children
+                (_, Some(_), _, Some(_)) => (best, max_val),
                 // if I don't have both best so far and max from right child
-                (Some(bl), Some(ml), None, None) => (Some(bl), Some(ml + node.key)),
+                (Some(_), Some(_), None, None) => (Some(bl), Some(path)),
                 // if I don't have both best so far and max from left child
-                (None, None, Some(br), Some(mr)) => (Some(br), Some(mr + node.key)),
-                // if I only have max from left
-                (None, Some(ml), None, None) => (None, Some(ml + node.key)),
-                // if I only have max from right
-                (None, None, None, Some(mr)) => (None, Some(mr + node.key)),
-                // if I'm a leaf
-                (None, None, None, None) => (None, Some(node.key)),
+                (None, None, Some(_), Some(_)) => (Some(br), Some(path)),
+                // if I only have max from left or from right or if I'm a leaf
+                (None, _, None, _) => (None, Some(path)),
                 _ => unreachable!("This code should never be reached"),
             }
         } else {
@@ -231,7 +222,7 @@ mod tests {
     //test for exercise 2
     #[test]
     fn test_max_path_sum() {
-        // No max path test for the max_path_sum method
+        // test for the max_path_sum method but there's no leaf-to-leaf path
         let mut tree = Tree::with_root(20); // id 0
         assert_eq!(
             tree.max_path_sum(),
@@ -302,6 +293,14 @@ mod tests {
             tree.max_path_sum().unwrap(),
             214,
             "This tree has max path sum of 214"
+        );
+
+        tree.add_node(4, 100, true); // id 7
+
+        assert_eq!(
+            tree.max_path_sum().unwrap(),
+            272,
+            "This tree has max path sum of 272"
         );
     }
 }
