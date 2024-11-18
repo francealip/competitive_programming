@@ -1,4 +1,3 @@
-use std::cmp::max;
 struct SegmentTree {
     tree: Vec<u32>,                 // The segment tree stored as a vector
     ranges: Vec<(usize, usize)>,    // Store the range for each node
@@ -102,65 +101,32 @@ impl SegmentTree {
         let left_child = self.get_left_child(current);
         let right_child = self.get_right_child(current);
 
-        // Handle panding updates on the node
-        value = self.handle_pending_update(current, value, node_start, node_end);
-
         if node_start >= start && node_end <= end {
             // Total Overlap
+            // Handle pending updates on the node
+            value = self.handle_pending_update(current, value, node_start, node_end);
+
             self.tree[current] = self.tree[current].min(value);
             self.propagate_lazy_update(current, value, node_start, node_end);
             return self.tree[current];
-        }
-
-        if end < node_start || node_end < start {
+        } else if end < node_start || node_end < start {
             // No Overlap
+            // Handle pending updates on the node
+            self.handle_pending_update(current, std::u32::MAX, node_start, node_end);
             return self.tree[current];
         }
 
         // Partial Overlap Recursion
+        // Handle pending updates on the node
+        value = self.handle_pending_update(current, value, node_start, node_end); //sbagliato l'invio dei pending update con no overlap
+
         let mid = (node_start + node_end) / 2;
         let left_result = self.range_update_recursive(left_child, start, mid.min(end), value);
-        let right_result = self.range_update_recursive(right_child, (mid + 1).max(start), end, value);
+        let right_result =
+            self.range_update_recursive(right_child, (mid + 1).max(start), end, value);
 
         self.tree[current] = left_result.max(right_result);
         self.tree[current]
-    }
-
-    // Range Update Function
-    pub fn range_max_query_lazy(&mut self, start: usize, end: usize) -> u32 {
-        self.range_max_query_lazy_recursive(0, start, end)
-    }
-
-    // Recursive Range Update Function
-    pub fn range_max_query_lazy_recursive(
-        &mut self,
-        current: usize,
-        start: usize,
-        end: usize,
-    ) -> u32 {
-        let (node_start, node_end) = self.ranges[current];
-        let left_child = self.get_left_child(current);
-        let right_child = self.get_right_child(current);
-
-        // Handle panding updates on the node
-        self.handle_pending_update(current, std::u32::MAX, node_start, node_end);
-
-        if node_start >= start && node_end <= end {
-            // Total Overlap
-            return self.tree[current];
-        }
-
-        if end < node_start || node_end < start {
-            // No Overlap
-            return 0;
-        }
-
-        // Partial Overlap Recursion
-        let mid = (node_start + node_end) / 2;
-        let left_result = self.range_max_query_lazy_recursive(left_child, start, mid.min(end));
-        let right_result = self.range_max_query_lazy_recursive(right_child, (mid + 1).max(start), end);
-
-        left_result.max(right_result)
     }
 
     // Support Function: Handle pending updates
@@ -187,194 +153,204 @@ impl SegmentTree {
         node_start: usize,
         node_end: usize,
     ) {
-        if node_start != node_end {
+        if node_start < node_end {
             let left_child = self.get_left_child(current);
             let right_child = self.get_right_child(current);
-            self.lazy_updates[left_child] = Some(value);
-            self.lazy_updates[right_child] = Some(value);
+            match (
+                self.lazy_updates[left_child],
+                self.lazy_updates[right_child],
+            ) {
+                (Some(left_value), Some(right_value)) => {
+                    self.lazy_updates[left_child] = Some(left_value.min(value));
+                    self.lazy_updates[right_child] = Some(right_value.min(value));
+                }
+                (Some(left_value), None) => {
+                    self.lazy_updates[left_child] = Some(left_value.min(value));
+                    self.lazy_updates[right_child] = Some(value);
+                }
+                (None, Some(right_value)) => {
+                    self.lazy_updates[left_child] = Some(value);
+                    self.lazy_updates[right_child] = Some(right_value.min(value));
+                }
+                (None, None) => {
+                    self.lazy_updates[left_child] = Some(value);
+                    self.lazy_updates[right_child] = Some(value);
+                }
+            }
         }
+    }
+
+    // Range Update Function
+    pub fn range_max_query_lazy(&mut self, start: usize, end: usize) -> u32 {
+        self.range_max_query_lazy_recursive(0, start, end)
+    }
+
+    // Recursive Range Update Function
+    pub fn range_max_query_lazy_recursive(
+        &mut self,
+        current: usize,
+        start: usize,
+        end: usize,
+    ) -> u32 {
+        let (node_start, node_end) = self.ranges[current];
+        let left_child = self.get_left_child(current);
+        let right_child = self.get_right_child(current);
+
+        // Handle pending updates on the node
+        self.handle_pending_update(current, std::u32::MAX, node_start, node_end);
+
+        if node_start >= start && node_end <= end {
+            // Total Overlap
+            return self.tree[current];
+        } else if end < node_start || node_end < start {
+            // No Overlap
+            return 0;
+        }
+
+        // Partial Overlap Recursion
+        let mid = (node_start + node_end) / 2;
+        let left_result = self.range_max_query_lazy_recursive(left_child, start, mid.min(end));
+        let right_result =
+            self.range_max_query_lazy_recursive(right_child, (mid + 1).max(start), end);
+
+        left_result.max(right_result)
+    }
+
+    // Support function to traverse and print the tree
+    pub fn print_tree(&self, current: usize) {
+        let (node_start, node_end) = self.ranges[current];
+        print!(
+            "Range: ({},{}): {}, ",
+            node_start, node_end, self.tree[current]
+        );
+        if let Some(update) = self.lazy_updates[current] {
+            print!("{} -", update);
+        }
+        print!("None -");
+        if node_start == node_end {
+            return;
+        }
+        self.print_tree(self.get_left_child(current));
+        self.print_tree(self.get_right_child(current));
     }
 }
 
+// TESTING
+
+use std::fs;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::path::Path;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::process::Output;
 
-    #[test]
-    fn test_segment_tree() {
-        let arr = [5, 4, 3, 2, 9, 1, 7];
-        let segment_tree = SegmentTree::new(&arr);
+    pub struct Test {
+        data: Vec<u32>,
+        queries: Vec<(usize, usize, Option<u32>)>,
+        outputs: Vec<u32>,
+    }
 
-        // The segment tree should look like this:
-        //             9
-        //        5         9
-        //     5    3     9   7
-        //    5 4  3 2   9 1
-        assert_eq!(
-            segment_tree.tree,
-            [9, 5, 9, 5, 3, 9, 7, 5, 4, 3, 2, 9, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    impl Test {
+        pub fn get_data(&self) -> &Vec<u32> {
+            &self.data
+        }
+
+        pub fn get_queries(&self) -> &Vec<(usize, usize, Option<u32>)> {
+            &self.queries
+        }
+
+        pub fn get_outputs(&self) -> &Vec<u32> {
+            &self.outputs
+        }
+    }
+    pub fn get_one_file_test(in_file: File, out_file: File) -> Test {
+        let mut file_iter_input = BufReader::new(in_file).lines().map(|x| x.unwrap());
+
+        let mut file_iter_output = BufReader::new(out_file).lines().map(|x| x.unwrap());
+
+        // Read the first line for n and m
+        let mut line = file_iter_input.next().unwrap();
+        let mut iter = line.split_whitespace();
+        let (n, m) = (
+            iter.next().unwrap().parse::<usize>().unwrap(),
+            iter.next().unwrap().parse::<usize>().unwrap(),
         );
 
-        let arr = [9, 3, 11, 7, 23];
-        let segment_tree = SegmentTree::new(&arr);
+        // Read the second line for the array
+        line = file_iter_input.next().unwrap();
+        iter = line.split_whitespace();
+        let data = iter
+            .map(|x| x.parse::<u32>().unwrap())
+            .collect::<Vec<u32>>();
 
-        // The segment tree should look like this:
-        //             23
-        //        11       23
-        //      9   11   7   23
-        //    9  3
-        assert_eq!(
-            segment_tree.tree,
-            [23, 11, 23, 9, 11, 7, 23, 9, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        );
+        let mut queries = Vec::new();
+        let mut outputs = Vec::new();
 
-        let arr = [9, 7, 8, 3, 12, 11, 7, 25];
-        let segment_tree = SegmentTree::new(&arr);
+        for _ in 0..m {
+            line = file_iter_input.next().unwrap();
+            iter = line.split_whitespace();
 
-        // The segment tree should look like this:
-        //               25
-        //         9             25
-        //      9     8      12     25
-        //    9  7  8  3   12  11  7  25
-        assert_eq!(
-            segment_tree.tree,
-            [
-                25, 9, 25, 9, 8, 12, 25, 9, 7, 8, 3, 12, 11, 7, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0
-            ]
-        );
+            // Range Update query
+            if iter.next().unwrap().parse::<usize>().unwrap() == 0 {
+                let start = iter.next().unwrap().parse::<usize>().unwrap();
+                let end = iter.next().unwrap().parse::<usize>().unwrap();
+                let value = iter.next().unwrap().parse::<u32>().unwrap();
+                queries.push((start, end, Some(value)));
+            // Max query
+            } else {
+                let start = iter.next().unwrap().parse::<usize>().unwrap();
+                let end = iter.next().unwrap().parse::<usize>().unwrap();
+                queries.push((start, end, None));
+
+                let output = file_iter_output.next().unwrap().parse::<u32>().unwrap();
+                outputs.push(output);
+            }
+        }
+        Test {
+            data,
+            queries,
+            outputs,
+        }
+    }
+
+    //support function that tests one file
+    pub fn test_one_file(path: &str, file_number: usize) {
+        println!("Reading file: {}/input{}.txt", path, file_number);
+        let input_file_path = format!("{}/input{}.txt", path, file_number);
+        let output_file_path = format!("{}/output{}.txt", path, file_number);
+        let in_file = File::open(input_file_path).unwrap();
+        let out_file = File::open(output_file_path).unwrap();
+
+        let test = get_one_file_test(in_file, out_file);
+        let arr = test.get_data();
+        let queries = test.get_queries();
+        let outputs = test.get_outputs();
+
+        let mut segment_tree = SegmentTree::new(arr);
+        let mut results: Vec<u32> = Vec::new();
+
+        for query in queries {
+            let start = query.0 - 1;
+            let end = query.1 - 1;
+            if let Some(value) = query.2 {
+                segment_tree.range_update(start, end, value);
+            } else {
+                results.push(segment_tree.range_max_query_lazy(start, end));
+            }
+        }
+        assert_eq!(results, *outputs);
     }
 
     #[test]
-    fn test_max_query() {
-        let arr = [5, 4, 3, 2, 9, 1, 7];
-        let segment_tree = SegmentTree::new(&arr);
-
-        assert_eq!(segment_tree.range_max_query(1, 4), 9);
-        assert_eq!(segment_tree.range_max_query(2, 6), 9);
-        assert_eq!(segment_tree.range_max_query(0, 6), 9);
-        assert_eq!(segment_tree.range_max_query(0, 3), 5);
-        assert_eq!(segment_tree.range_max_query(5, 6), 7);
-
-        let arr = [9, 3, 11, 7, 23, 1, 5, 8, 7, 12, 11, 7, 25];
-        let segment_tree = SegmentTree::new(&arr);
-
-        assert_eq!(segment_tree.range_max_query(0, 3), 11);
-        assert_eq!(segment_tree.range_max_query(1, 4), 23);
-        assert_eq!(segment_tree.range_max_query(1, 3), 11);
-        assert_eq!(segment_tree.range_max_query(2, 6), 23);
-        assert_eq!(segment_tree.range_max_query(0, 6), 23);
-        assert_eq!(segment_tree.range_max_query(0, 12), 25);
-        assert_eq!(segment_tree.range_max_query(7, 10), 12);
-        assert_eq!(segment_tree.range_max_query(7, 9), 12);
-        assert_eq!(segment_tree.range_max_query(5, 6), 5);
-    }
-
-    #[test]
-    fn test_range_update() {
-        let arr = [19, 23, 17, 14, 9, 11, 7];
-        let mut segment_tree = SegmentTree::new(&arr);
-        assert_eq!(
-            segment_tree.tree,
-            [
-                23, 23, 11, 23, 17, 11, 7, 19, 23, 17, 14, 9, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0
-            ]
-        );
-        segment_tree.range_update(0, 3, 22);
-        assert_eq!(
-            segment_tree.tree,
-            [
-                22, 22, 11, 23, 17, 11, 7, 19, 23, 17, 14, 9, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0
-            ]
-        );
-        assert_eq!(
-            segment_tree.lazy_updates,
-            [None, None, None, Some(22), Some(22), None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None]
-
-        );
-        segment_tree.range_update(2, 4, 15);
-        assert_eq!(
-            segment_tree.tree,
-            [
-                22, 22, 11, 22, 15, 11, 7, 19, 23, 17, 14, 9, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0
-            ]
-        );
-        assert_eq!(
-            segment_tree.lazy_updates,
-            [None, None, None, None, None, None, None, Some(22), Some(22), Some(15), Some(15),
-                None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None]
-        );
-        segment_tree.range_update(6, 6, 5);
-        assert_eq!(
-            segment_tree.tree,
-            [
-                22, 22, 11, 22, 15, 11, 5, 19, 23, 17, 14, 9, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0
-            ]
-        );
-        assert_eq!(
-            segment_tree.lazy_updates,
-            [None, None, None, None, None, None, None, Some(22), Some(22), Some(15), Some(15),
-                None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None]
-        );
-        segment_tree.range_update(1, 3, 12);
-        assert_eq!(
-            segment_tree.tree,
-            [19, 19, 11, 19, 12, 11, 5, 19, 12, 17, 14, 9, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        );
-        assert_eq!(
-            segment_tree.lazy_updates,
-            [None, None, None, None, None, None, None, None, None, Some(12), Some(12), None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None]
-        );
-    }
-
-    #[test]
-    fn test_lazy_max_query(){
-        let arr = [19, 23, 17, 14, 9, 11, 7];
-        let mut segment_tree = SegmentTree::new(&arr);
-        segment_tree.range_update(0, 3, 22);
-        segment_tree.range_update(2, 4, 15);
-        segment_tree.range_update(6, 6, 5);
-        assert_eq!(segment_tree.range_max_query_lazy(1, 4), 22);
-        assert_eq!(
-            segment_tree.lazy_updates,
-            [None, None, None, None, None, None, None, None, None, Some(15), Some(15), None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None]
-        );
-        segment_tree.range_update(2, 3, 7);
-        segment_tree.range_update(4, 6, 10);
-        // Checks if trees are okay after the updates
-        assert_eq!(
-            segment_tree.tree,
-            [22, 22, 10, 22, 7, 11, 5, 19, 22, 17, 14, 9, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        );
-        assert_eq!(
-            segment_tree.lazy_updates,
-            [None, None, None, None, None, Some(10), Some(10), None, None, Some(7), Some(7), None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None]
-        );
-        assert_eq!(segment_tree.range_max_query_lazy(3, 5), 10);
-        assert_eq!(
-            segment_tree.tree,
-            [22, 22, 10, 22, 7, 10, 5, 19, 22, 7, 7, 9, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        );
-        assert_eq!(
-            segment_tree.lazy_updates,
-            [None, None, None, None, None, None, None, None,None, None, None,Some(10), Some(10),
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None]
-        );
+    pub fn test_exercise1() {
+        let mut path = Path::new("data").join("exercise1");
+        let path_str = path.to_str().unwrap();
+        for i in 0..=10 {
+            test_one_file(path_str, i);
+        }
     }
 }
