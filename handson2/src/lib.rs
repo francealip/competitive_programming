@@ -65,7 +65,7 @@ impl MaxSegmentTree {
     }
 
     // Recursive is_there function, it scan recursively the tree
-    // and return the number of occurrences of k value in the range [start, end]
+    // and return an integer greter or equal then 1 if k value in the range [start, end], 0 otherwise
     pub fn is_there_recursive(&self, current: usize, start: usize, end: usize, k: u32) -> u32 {
         let (node_start, node_end) = self.ranges[current];
         if node_start >= start && node_end <= end {
@@ -79,6 +79,10 @@ impl MaxSegmentTree {
             return 0;
         }
         // Partial overlap
+        if self.tree[current] < k {
+            return 0;
+        }
+
         let mid = (node_end + node_start) / 2;
         // Recursively query the left and right children
         let left_count = self.is_there_recursive(
@@ -233,7 +237,7 @@ impl MaxSegmentTree {
     }
 
     // propagate the update on one node
-    fn propagate_one_child( &mut self, node: usize, value: u32) {
+    fn propagate_one_child(&mut self, node: usize, value: u32) {
         self.lazy_updates[node] = match self.lazy_updates[node] {
             Some(left_lazy) => Some(left_lazy.min(value)),
             None => Some(value),
@@ -463,6 +467,7 @@ mod tests {
         let n = intervals.len() / 2;
         let mut count: Vec<i32> = vec![0; n + 1];
 
+        // Sum +1 where interval starts and -1 one position after it ends
         for i in 0..intervals.len() {
             let idx = intervals[i] as usize;
             if i % 2 == 0 {
