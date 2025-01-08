@@ -457,7 +457,6 @@ mod tests {
         let output_file = File::open(output_path).expect("Failed to open output file");
 
         let test_case = load_test_case_ex2(input_file, output_file);
-
         let intervals = test_case.data();
         let queries = test_case.queries();
         let expected_results = test_case.results();
@@ -491,6 +490,7 @@ mod tests {
         let prefix_sum_u32: Vec<u32> = prefix_sum.iter().map(|&x| x as u32).collect();
 
         let max_segment_tree = MaxSegmentTree::new(&prefix_sum_u32);
+
 
         let mut actual_results = Vec::new();
 
